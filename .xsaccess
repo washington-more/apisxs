@@ -1,0 +1,30 @@
+{
+    "anonymous_connection": "AB_MOBILE::anonConn",
+    "exposed" : true,  
+    "authentication" : null,
+    "cors" : {
+        "enabled": true,
+        "allowMethods": [
+            "GET",
+            "POST",
+            "HEAD",
+            "OPTIONS"
+        ],
+        "allowHeaders": [
+            "Accept",
+            "Authorization",
+            "Content-Type",
+            "X-CSRF-Token"
+        ],
+        "allowOrigin": [
+            "*"
+        ],
+        "maxAge": "3600"
+    },
+    "headers": {
+        "enabled": true
+    },
+    "exposeHeaders": [
+        "x-csrf-token"
+    ]
+}
