@@ -12,20 +12,22 @@ function ObtenerLineas(clave, database){
     
     try {
         
-        var mQuery = 'select \'6\' as "tipodocumentoemisor",\'20102892381\' as "numerodocumentoemisor",T0."Indicator" as "tipodocumento", '+ 
+        var mQuery = 'select \'6\' as "tipodocumentoemisor",\'20102892381\' as "numerodocumentoemisor",\'07\' as "tipodocumento", '+ 
 	'T0."U_SYP_MDSD"||\'-\'||T0."U_SYP_MDCD" as "serienumero",T1."LineNum"+1 as "numeroordenitem", '+
 	'case when T1."Quantity"=0 then 1 else T1."Quantity" end as "cantidad", '+
 	'ifnull(T2."U_SYP_TIPUNMED",\'NIU\') as "unidadmedida",ifnull(T2."ItemName",T1."Dscription") as "descripcion", '+
-	'round(T1."Price",2) as "importeunitariosinimpuesto", '+ 
+	'T1."Price" as "importeunitariosinimpuesto", '+ 
 	'ROUND(T1."PriceAfVAT",2) as "importeunitarioconimpuesto",case when T1."TaxCode"=\'IGV\' then \'01\' else \'02\' end as "codigoimporteunitarioconimpues", '+
-	'case when T1."DiscPrcnt"=100 then \'0.00\' else cast(ROUND((round(T1."Price",2)*case when T1."Quantity"=0 then 1 else T1."Quantity" end)*0.18,2) as varchar) end as "importetotalimpuestos", '+
-	'case when T1."DiscPrcnt"=100 then ROUND((ROUND((T1."PriceBefDi"),2)*case when T1."Quantity"=0 then 1 else T1."Quantity" end),2) else round(T1."Price",2)*case when T1."Quantity"=0 then 1 else T1."Quantity" end end as "montobaseigv", '+
-	'18.00 as "tasaigv",case when T1."DiscPrcnt"=100 then cast(ROUND(((ROUND((T1."PriceBefDi"),2)*case when T1."Quantity"=0 then 1 else T1."Quantity" end)*18)/100,2) as varchar) else cast(ROUND((round(T1."Price",2)*case when T1."Quantity"=0 then 1 else T1."Quantity" end)*0.18,2) as varchar) end as "importeigv", '+
-	'case when T1."DiscPrcnt"=100 then \'15\' else \'10\' end as "codigorazonexoneracion",case when T1."DiscPrcnt"=100 then ROUND((ROUND((T1."PriceBefDi"),2)*case when T1."Quantity"=0 then 1 else T1."Quantity" end),2) else round(T1."Price",2)*case when T1."Quantity"=0 then 1 else T1."Quantity" end end as "importetotalsinimpuesto", '+
-	'ifnull(T1."ItemCode",T1."AcctCode") as "codigoproducto",\'\' as "codigoproductosunat", case when T1."DiscPrcnt"=100 then ROUND((T1."PriceBefDi"),2) else null end as "importereferencial", '+
-	'case when T1."DiscPrcnt"=100 then \'02\' else \'\' end as "codigoimportereferencial" '+
-'from '+database+'.OINV T0 inner join '+database+'.INV1 T1 on T0."DocEntry"=T1."DocEntry" '+
-	'left join '+database+'.OITM T2 on T1."ItemCode"=T2."ItemCode" '+
+	//'case when T1."DiscPrcnt"=100 then \'0.00\' else cast(ROUND(T1."VatSum",2) as varchar) end as "importetotalimpuestos", '+
+	'case when T1."LineTotal"=0 then \'0.00\' else cast(ROUND(T1."VatSum",2) as varchar) end as "importetotalimpuestos", '+
+	//'case when T1."DiscPrcnt"=100 then ROUND((ROUND((T1."PriceBefDi"),2)*T1."Quantity"),2) else T1."LineTotal" end as "montobaseigv", '+
+	'case when T1."LineTotal"=0 then ROUND((ROUND((case when T1."PriceBefDi"=0 then 1 else T1."PriceBefDi" end),2)*T1."Quantity"),2) else T1."LineTotal" end as "montobaseigv", '+
+	'18.00 as "tasaigv",case when T1."LineTotal"=0 then cast(ROUND(((ROUND((case when T1."PriceBefDi"=0 then 1 else T1."PriceBefDi" end),2)*T1."Quantity")*18)/100,2) as varchar) else cast(ROUND(T1."VatSum",2) as varchar) end as "importeigv", '+
+	'case when T1."LineTotal"=0 then \'15\' else \'10\' end as "codigorazonexoneracion",case when T1."LineTotal"=0 then ROUND((ROUND((case when T1."PriceBefDi"=0 then 1 else T1."PriceBefDi" end),2)*T1."Quantity"),2) else T1."LineTotal" end as "importetotalsinimpuesto", '+
+	'ifnull(T1."ItemCode",T1."AcctCode") as "codigoproducto",\'\' as "codigoproductosunat", case when T1."LineTotal"=0 then ROUND((case when T1."PriceBefDi"=0 then 1 else T1."PriceBefDi" end),2) else null end as "importereferencial", '+
+	'case when T1."LineTotal"=0 then \'02\' else \'\' end as "codigoimportereferencial" '+
+'from '+database+'.ORIN T0 inner join '+database+'.RIN1 T1 on T0."DocEntry"=T1."DocEntry" '+
+	'inner join '+database+'.OITM T2 on T1."ItemCode"=T2."ItemCode" '+
 'where T1."DocEntry"='+clave+'';
         
         //var mConn = $.hdb.getConnection();
@@ -84,43 +86,34 @@ try{
     var empId = $.request.parameters.get('empId');
     var fini = $.request.parameters.get('fini');
     var ffin = $.request.parameters.get('ffin');
-    var tipo = $.request.parameters.get('tipo');
     var suc = $.request.parameters.get('suc');
     
     if (empId !== undefined && suc !== undefined)
 	{ 
 	    var dbname = functions.GetDataBase(empId);
 	    localCurrency = functions.GetLocalCurrency(dbname);
-        query = 'select T0."U_SYP_MDSD"||\'-\'||T0."U_SYP_MDCD" as "serienumero",TO_VARCHAR (TO_DATE(T0."DocDate"), \'YYYY-MM-DD\') as "fechaemision", '+
-	 'T0."Indicator" as "tipodocumento",\'PEN\' as "tipomoneda",\'20102892381\' as "numerodocumentoemisor",\'6\' as "tipodocumentoemisor", '+
+        query = 'select T0."U_SYP_MDSD"||\'-\'||T0."U_SYP_MDCD" as "serienumero",TO_VARCHAR (TO_DATE(current_date), \'YYYY-MM-DD\') as "fechaemision", '+
+	 '\'07\' as "tipodocumento",\'PEN\' as "tipomoneda",\'20102892381\' as "numerodocumentoemisor",\'6\' as "tipodocumentoemisor", '+
 	 '\'DISTRIBUIDORA COMERCIAL ALVAREZ BOHL SRL\' as "razonsocialemisor",\'gvilchez@alvarezbohl.com\' as "correoemisor", '+
 	 'T2."U_SYP_ESTRUC" as "codigolocalanexoemisor",T1."U_SYP_BPTD" as "tipodocumentoadquiriente",T1."LicTradNum" as "numerodocumentoadquiriente", '+
-	 'T1."CardName" as "razonsocialadquiriente",case when ifnull(T1."E_Mail",'+
-	 '\'info@alvarezbohl.pe\')=\'\' then \'info@alvarezbohl.pe\' else ifnull(T1."E_Mail",\'info@alvarezbohl.pe\') end as "correoadquiriente",'+
-	 'ifnull((select cast(round(sum(round(S1."Price",2)*case when S1."Quantity"=0 then 1 else S1."Quantity" end)*0.18,2) as varchar) from '+dbname+'.INV1 S1 where S1."DocEntry"=T0."DocEntry"),\'0.00\')  as "totalimpuestos", '+
-	 'ifnull((select cast(round(sum(round(S1."Price",2)*case when S1."Quantity"=0 then 1 else S1."Quantity" end),2) as varchar) from '+dbname+'.INV1 S1 where S1."DocEntry"=T0."DocEntry"),\'0.00\') as "totalvalorventanetoopgravadas", '+
-	 'ifnull((select cast(round(sum(round(S1."Price",2)*case when S1."Quantity"=0 then 1 else S1."Quantity" end)*0.18,2) as varchar) from '+dbname+'.INV1 S1 where S1."DocEntry"=T0."DocEntry"),\'0.00\') as "totaligv", '+
-	'ifnull((select cast(round(sum(round(S1."Price",2)*case when S1."Quantity"=0 then 1 else S1."Quantity" end)*1.18,2) as varchar) from '+dbname+'.INV1 S1 where S1."DocEntry"=T0."DocEntry"),\'0.00\') as "totalventa",'+
-	'(select round(sum(round(S1."Price",2)*case when S1."Quantity"=0 then 1 else S1."Quantity" end),2) from '+dbname+'.INV1 S1 where S1."DocEntry"=T0."DocEntry") as "totalvalorventa", '+
-	'ifnull((select cast(round(sum(round(S1."Price",2)*case when S1."Quantity"=0 then 1 else S1."Quantity" end)*1.18,2) as varchar) from '+dbname+'.INV1 S1 where S1."DocEntry"=T0."DocEntry"),\'0.00\') AS "totalprecioventa", '+
+	 'T1."CardName" as "razonsocialadquiriente",case when ifnull(T1."E_Mail",\'info@alvarezbohl.pe\')=\'\' then \'info@alvarezbohl.pe\' else ifnull(T1."E_Mail",\'info@alvarezbohl.pe\') end as "correoadquiriente",cast(ROUND(T0."VatSum",2) as varchar) as "totalimpuestos", '+
+	 'cast(round(T0."DocTotal"-T0."VatSum",2) as varchar) as "totalvalorventanetoopgravadas", '+
+	 'cast(ROUND(T0."VatSum",2) as varchar) as "totaligv", '+
+	'cast(round(T0."DocTotal"-T0."VatSum",2)+ROUND(T0."VatSum",2) as varchar) as "totalventa",T0."DocTotal"-T0."VatSum" as "totalvalorventa", '+
+	'cast(round(T0."DocTotal"-T0."VatSum",2)+ROUND(T0."VatSum",2) as varchar) AS "totalprecioventa", '+
 	'\'0101\' as "tipooperacion",T0."U_AB_DMEB" as "bl_estadoregistro",T0."DocEntry" as "Clave", '+
 	'\'CAR.PIURA SULLANA LOTE. A OTR. VALLE MEDIO PIURA P1-02 (FRENTE A LA EMPRESA BACKUS)\' as "direccionemisor",\'PIURA\' as "departamentoemisor", '+
 	'\'VEINTISEIS DE OCTUBRE\' as "urbanizacion",\'PIURA\' as "provinciaemisor",\'200105\' as "ubigeoemisor",\'PIURA\' as "distritoemisor", '+
-	'\'PE\' as "paisemisor",(select round(sum(case when T3."DiscPrcnt"=100 then round(T3."PriceBefDi",2)*T3."Quantity" else 0 end),2) from '+dbname+'.INV1 T3 '+
+	'\'PE\' as "paisemisor",(select round(sum(case when T3."LineTotal"=0 then round(case when T3."PriceBefDi"=0 then 1 else T3."PriceBefDi" end,2)*T3."Quantity" else 0 end),2) from '+dbname+'.RIN1 T3 '+
 	'WHERE T3."DocEntry"=T0."DocEntry") as "totalvalorventanetoopgratuitas",\'1\' as "inhabilitado",\'1000\' as "codigoleyenda_1", '+
-	//'T0."U_AB_DMML" as "textoleyenda_1",case when T0."GroupNum"=-1 then 0 else 1 end as "valor", '+
-	'T0."U_AB_DMML" as "textoleyenda_1",0 as "valor", '+
-	'ifnull((select cast(ROUND(sum(((round(T3."PriceBefDi",2)*T3."Quantity")*18)/100),2) as varchar) from '+dbname+'.INV1 T3 where T3."DocEntry"=T0."DocEntry" and T3."DiscPrcnt"=100),\'0.00\') '+
-	'as "totalTributosOpeGratuitas", T3."StreetS" as "direccion", '+
-	'(select substring(max(S0."U_SYP_CODDET"),2,3) from '+dbname+'."@SYP_SERVICIOS" S0 inner join '+dbname+'.INV1 S1 on S0."Code"=S1."U_SYP_TIPOSERV" where S1."DocEntry"=T0."DocEntry") as "codigoDet", '+
-	'\'00-631-058973\' as "numeroCtaBancoNacion",\'001\' as "formaPago", '+
-	'(select S0."WTAmnt" from '+dbname+'.INV5 S0 where S0."AbsEntry"=T0."DocEntry") as "totalDetraccion", '+
-	'(select round(S0."Rate"/1.18) from '+dbname+'.INV5 S0 where S0."AbsEntry"=T0."DocEntry") as "porcentajeDetraccion" '+
-'from '+dbname+'.OINV T0 inner join '+dbname+'.OCRD T1 on T0."CardCode"=T1."CardCode" '+
-'inner join '+dbname+'.INV12 T3 on T0."DocEntry"=T3."DocEntry" '+
+	'T0."U_AB_DMML" as "textoleyenda_1",case when T0."GroupNum"=-1 then 0 else 1 end as "valor", '+
+	'ifnull((select cast(ROUND(sum(((case when T3."PriceBefDi"=0 then 1 else T3."PriceBefDi" end*T3."Quantity")*18)/100),2) as varchar) from '+dbname+'.INV1 T3 where T3."DocEntry"=T0."DocEntry" and T3."LineTotal"=0),\'0.00\') '+
+	'as "totalTributosOpeGratuitas",T0."U_SYP_MDTO" as "tipodocumentoreferenciaprincip", '+
+	'T0."U_SYP_MDSO"||\'-\'||T0."U_SYP_MDCO" as "numerodocumentoreferenciaprinc" '+
+'from '+dbname+'.ORIN T0 inner join '+dbname+'.OCRD T1 on T0."CardCode"=T1."CardCode" '+
 	'left join '+dbname+'.OWHS T2 on T0."U_AB_SUCURSAL"=T2."U_AB_SUCURSAL" and T2."WhsName" like \'%Principal%\' '+
-'where T0."DocDate" between \''+fini+'\' and \''+ffin+'\' and T0."Indicator"=\''+tipo+'\' and T0."CANCELED"=\'N\' '+
-'and T0."U_AB_SUCURSAL"=\''+suc+'\' ';
+'where T0."DocDate" between \''+fini+'\' and \''+ffin+'\' and T0."CANCELED"=\'N\' '+
+'and T0."U_AB_SUCURSAL"=\''+suc+'\' and T0."U_AB_DMEN"=\'10\' ';
 	                        
     	mConn = $.hdb.getConnection();
     	var rs = mConn.executeQuery(query); 
@@ -154,13 +147,7 @@ try{
         		mIncomingPayment += '"totalventa": '+rs[i].totalventa+',';
         		mIncomingPayment += '"totalvalorventa": '+rs[i].totalvalorventa+',';
         		mIncomingPayment += '"totalprecioventa": '+rs[i].totalprecioventa+',';
-        		if(rs[i].codigoDet !== null){
-        		    mIncomingPayment += '"tipooperacion": "1001",';
-        		    mIncomingPayment += '"codigoleyenda_4": "2006",';
-        		    mIncomingPayment += '"textoleyenda_4": "OPERACION SUJETA AL SISTEMA DE PAGO DE OBLIGACIONES TRIBUTARIAS",';
-        		}else{
         		mIncomingPayment += '"tipooperacion": "'+rs[i].tipooperacion+'",';
-        		}
         		mIncomingPayment += '"bl_estadoregistro": "'+rs[i].bl_estadoregistro+'",';
         		mIncomingPayment += '"direccionemisor": "'+rs[i].direccionemisor+'",';
         		mIncomingPayment += '"departamentoemisor": "'+rs[i].departamentoemisor+'",';
@@ -173,17 +160,15 @@ try{
         		mIncomingPayment += '"inhabilitado": "'+rs[i].inhabilitado+'",';
         		mIncomingPayment += '"codigoleyenda_1": "'+rs[i].codigoleyenda_1+'",';
         		mIncomingPayment += '"textoleyenda_1": "'+rs[i].textoleyenda_1+'",';
+        		mIncomingPayment += '"codigoserienumeroafectado": "'+rs[i].tipodocumento+'",';
+        		mIncomingPayment += '"motivodocumento": "Devolucion Mercaderia DEVOLUCION",';
+        		mIncomingPayment += '"tipodocumentoreferenciaprincip": "'+rs[i].tipodocumentoreferenciaprincip+'",';
+        		mIncomingPayment += '"numerodocumentoreferenciaprinc": "'+rs[i].numerodocumentoreferenciaprinc+'",';
+        		mIncomingPayment += '"codigoauxiliar40_1": "9011",';
+        		mIncomingPayment += '"textoauxiliar40_1": "18%",';
 
         		    mIncomingPayment += '"invoiceDetails": [' + ObtenerLineas(rs[i].Clave, dbname) + '],';
         		    mIncomingPayment += '"spe_einvoiceheader_add": [';
-        		    mIncomingPayment += '{'; 
-        		    mIncomingPayment += '"clave": "formaPagoNegociable",';
-        		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
-        		    mIncomingPayment += '"serienumero": "'+rs[i].serienumero+'",';
-        		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
-        		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
-        		    mIncomingPayment += '"valor": "'+rs[i].valor+'"';
-        		    mIncomingPayment += '},';
         		    mIncomingPayment += '{'; 
         		    mIncomingPayment += '"clave": "totalTributosOpeGratuitas",';
         		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
@@ -191,62 +176,7 @@ try{
         		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
         		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
         		    mIncomingPayment += '"valor": "'+rs[i].totalTributosOpeGratuitas+'"';
-        		    mIncomingPayment += '},';
-        		    mIncomingPayment += '{'; 
-        		    mIncomingPayment += '"clave": "direccionAdquiriente",';
-        		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
-        		    mIncomingPayment += '"serienumero": "'+rs[i].serienumero+'",';
-        		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
-        		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
-        		    mIncomingPayment += '"valor": "'+rs[i].direccion+'"';
-        		    if(rs[i].codigoDet !== null){
-        		        mIncomingPayment += '},';
-        		        mIncomingPayment += '{'; 
-        		    mIncomingPayment += '"clave": "codigoDetraccion",';
-        		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
-        		    mIncomingPayment += '"serienumero": "'+rs[i].serienumero+'",';
-        		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
-        		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
-        		    mIncomingPayment += '"valor": "'+rs[i].codigoDet+'"';
-        		    mIncomingPayment += '},';
-        		    mIncomingPayment += '{'; 
-        		    mIncomingPayment += '"clave": "numeroCtaBancoNacion",';
-        		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
-        		    mIncomingPayment += '"serienumero": "'+rs[i].serienumero+'",';
-        		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
-        		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
-        		    mIncomingPayment += '"valor": "'+rs[i].numeroCtaBancoNacion+'"';
-        		    mIncomingPayment += '},';
-        		    mIncomingPayment += '{'; 
-        		    mIncomingPayment += '"clave": "formaPago",';
-        		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
-        		    mIncomingPayment += '"serienumero": "'+rs[i].serienumero+'",';
-        		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
-        		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
-        		    mIncomingPayment += '"valor": "'+rs[i].formaPago+'"';
-        		    mIncomingPayment += '},';
-        		    mIncomingPayment += '{'; 
-        		    mIncomingPayment += '"clave": "totalDetraccion",';
-        		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
-        		    mIncomingPayment += '"serienumero": "'+rs[i].serienumero+'",';
-        		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
-        		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
-        		    //mIncomingPayment += '"valor": '+rs[i].totalDetraccion+'';
-        		    mIncomingPayment += '"valor": '+Math.round(rs[i].totalDetraccion* 100) / 100+'';
-        		    
-        		    mIncomingPayment += '},';
-        		    mIncomingPayment += '{'; 
-        		    mIncomingPayment += '"clave": "porcentajeDetraccion",';
-        		    mIncomingPayment += '"numerodocumentoemisor": "'+rs[i].numerodocumentoemisor+'",';
-        		    mIncomingPayment += '"serienumero": "'+rs[i].serienumero+'",';
-        		    mIncomingPayment += '"tipodocumento": "'+rs[i].tipodocumento+'",';
-        		    mIncomingPayment += '"tipodocumentoemisor": "'+rs[i].tipodocumentoemisor+'",';
-        		    mIncomingPayment += '"valor": '+rs[i].porcentajeDetraccion+'';
         		    mIncomingPayment += '}';
-        		    }else{
-        		        mIncomingPayment += '}';
-        		    }
-    
         		    mIncomingPayment += ']';
         		    mIncomingPayment += '}';
         		
